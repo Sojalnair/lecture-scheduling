@@ -1,7 +1,23 @@
 import React, { useState } from 'react';
-import { Calendar, Users, BookOpen, Plus, Trash2, Edit2, Save, X } from 'lucide-react';
+import { 
+  Calendar, Users, BookOpen, Plus, Trash2, Edit2, 
+  Save, X, LogOut, Lock, User, AlertCircle 
+} from 'lucide-react';
+
+// Mock database of users for authentication
+const MOCK_USERS = [
+  { username: 'admin', password: 'password123', role: 'admin', name: 'Admin User' },
+  { username: 'sarah', password: 'password123', role: 'instructor', name: 'Dr. Sarah Johnson', id: 1 },
+  { username: 'michael', password: 'password234', role: 'instructor', name: 'Prof. Michael Chen', id: 2 }
+];
 
 const LectureSchedulingModule = () => {
+  // --- AUTHENTICATION STATE ---
+  const [user, setUser] = useState(null); // null = not logged in
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [loginError, setLoginError] = useState('');
+
+  // --- APP STATE ---
   const [activePanel, setActivePanel] = useState('admin');
   const [instructors, setInstructors] = useState([
     { id: 1, name: 'Dr. Sarah Johnson', email: 'sarah.j@ideamagix.com' },
@@ -17,19 +33,55 @@ const LectureSchedulingModule = () => {
   const [editingCourse, setEditingCourse] = useState(null);
   
   const [courseForm, setCourseForm] = useState({
-    name: '',
-    level: '',
-    description: '',
-    image: ''
+    name: '', level: '', description: '', image: ''
   });
   
   const [batchForm, setBatchForm] = useState({
-    courseId: null,
-    batchName: '',
-    instructorId: null,
-    date: '',
-    time: ''
+    courseId: null, batchName: '', instructorId: null, date: '', time: ''
   });
+
+  // --- AUTHENTICATION HANDLERS ---
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    setLoginError('');
+
+    // 1. Variable Constraint Check (Input Validation)
+    if (loginForm.username.trim().length < 3) {
+      setLoginError('Username must be at least 3 characters long.');
+      return;
+    }
+    if (loginForm.password.length < 6) {
+      setLoginError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    // 2. Credential Check
+    const foundUser = MOCK_USERS.find(
+      u => u.username === loginForm.username && u.password === loginForm.password
+    );
+
+    if (foundUser) {
+      setUser(foundUser);
+      // Role Constraint: If instructor, force them to instructor panel
+      if (foundUser.role === 'instructor') {
+        setActivePanel('instructor');
+      } else {
+        setActivePanel('admin');
+      }
+      setLoginForm({ username: '', password: '' });
+    } else {
+      setLoginError('Invalid username or password.');
+    }
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setActivePanel('admin');
+    setLoginError('');
+  };
+
+  // --- EXISTING LOGIC HANDLERS ---
 
   const checkScheduleConflict = (instructorId, date) => {
     return schedules.some(schedule => 
@@ -45,9 +97,7 @@ const LectureSchedulingModule = () => {
 
     if (editingCourse) {
       setCourses(courses.map(c => 
-        c.id === editingCourse.id 
-          ? { ...c, ...courseForm }
-          : c
+        c.id === editingCourse.id ? { ...c, ...courseForm } : c
       ));
       setEditingCourse(null);
     } else {
@@ -127,6 +177,73 @@ const LectureSchedulingModule = () => {
     return schedules.filter(s => s.instructorId === instructorId);
   };
 
+  // --- RENDER: LOGIN SCREEN ---
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
+        <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center gap-2 text-3xl font-bold mb-2">
+              <span className="text-orange-500">idea</span>
+              <span className="text-purple-600">magix</span>
+            </div>
+            <p className="text-gray-500">Lecture Scheduling Portal</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
+              <div className="relative">
+                <User className="absolute left-3 top-3 text-gray-400" size={20} />
+                <input
+                  type="text"
+                  value={loginForm.username}
+                  onChange={(e) => setLoginForm({...loginForm, username: e.target.value})}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  placeholder="Enter username"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 text-gray-400" size={20} />
+                <input
+                  type="password"
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  placeholder="Enter password"
+                />
+              </div>
+            </div>
+
+            {loginError && (
+              <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 p-3 rounded-lg border border-red-200">
+                <AlertCircle size={16} />
+                {loginError}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition font-medium"
+            >
+              Sign In
+            </button>
+
+            <div className="text-xs text-gray-400 text-center mt-4">
+              <p>Demo Admin: admin / password123</p>
+              <p>Demo Instructor: sarah / password123</p>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // --- RENDER: MAIN DASHBOARD ---
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="bg-white shadow-md">
@@ -137,28 +254,49 @@ const LectureSchedulingModule = () => {
                 <span className="text-orange-500">idea</span>
                 <span className="text-purple-600">magix</span>
               </div>
-              <div className="text-sm text-gray-600 ml-4">Online Lecture Scheduling Module</div>
+              <div className="hidden md:block text-sm text-gray-600 ml-4 border-l border-gray-300 pl-4">
+                Online Lecture Scheduling Module
+              </div>
             </div>
-            <div className="flex gap-2">
+            
+            <div className="flex items-center gap-4">
+              <div className="text-right mr-2 hidden md:block">
+                <div className="text-sm font-bold text-gray-800">{user.name}</div>
+                <div className="text-xs text-gray-500 capitalize">{user.role}</div>
+              </div>
+              
+              {/* Role Constraint Check: Only Admin can toggle panels */}
+              {user.role === 'admin' && (
+                <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+                  <button
+                    onClick={() => setActivePanel('admin')}
+                    className={`px-4 py-2 rounded-md text-sm transition ${
+                      activePanel === 'admin'
+                        ? 'bg-white text-indigo-600 shadow-sm font-medium'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Admin
+                  </button>
+                  <button
+                    onClick={() => setActivePanel('instructor')}
+                    className={`px-4 py-2 rounded-md text-sm transition ${
+                      activePanel === 'instructor'
+                        ? 'bg-white text-indigo-600 shadow-sm font-medium'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Instructor
+                  </button>
+                </div>
+              )}
+
               <button
-                onClick={() => setActivePanel('admin')}
-                className={`px-4 py-2 rounded-lg transition ${
-                  activePanel === 'admin'
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
+                onClick={handleLogout}
+                className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 transition border border-red-100"
               >
-                Admin Panel
-              </button>
-              <button
-                onClick={() => setActivePanel('instructor')}
-                className={`px-4 py-2 rounded-lg transition ${
-                  activePanel === 'instructor'
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                Instructor Panel
+                <LogOut size={18} />
+                <span className="hidden md:inline">Logout</span>
               </button>
             </div>
           </div>
@@ -431,44 +569,79 @@ const LectureSchedulingModule = () => {
               <Calendar className="text-indigo-600" />
               <h2 className="text-2xl font-bold text-gray-800">Instructor Schedules</h2>
             </div>
-            <div className="space-y-6">
-              {instructors.map(instructor => {
-                const instructorSchedules = getInstructorSchedules(instructor.id);
-                return (
-                  <div key={instructor.id} className="border border-gray-200 rounded-lg p-4">
-                    <h3 className="font-bold text-lg text-gray-800 mb-4">{instructor.name}</h3>
-                    {instructorSchedules.length > 0 ? (
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Course</th>
-                              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Batch</th>
-                              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Date</th>
-                              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Time</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-200">
-                            {instructorSchedules.sort((a, b) => new Date(a.date) - new Date(b.date)).map(schedule => (
-                              <tr key={schedule.id} className="hover:bg-gray-50">
-                                <td className="px-4 py-2 text-sm text-gray-800">{schedule.courseName}</td>
-                                <td className="px-4 py-2 text-sm text-gray-600">{schedule.batchName}</td>
-                                <td className="px-4 py-2 text-sm text-gray-600">
-                                  {new Date(schedule.date).toLocaleDateString()}
-                                </td>
-                                <td className="px-4 py-2 text-sm text-gray-600">{schedule.time}</td>
+            
+            {/* If logged in as Instructor, only show their schedule */}
+            {user.role === 'instructor' ? (
+              <div className="border border-gray-200 rounded-lg p-4 bg-indigo-50">
+                <h3 className="font-bold text-lg text-gray-800 mb-4">Your Schedule ({user.name})</h3>
+                {/* For demo purposes, we are mapping the logged in user to ID 1 (Sarah) */}
+                {(() => {
+                  const mySchedules = getInstructorSchedules(1); // Hardcoded to 1 for demo
+                  return mySchedules.length > 0 ? (
+                    <table className="w-full bg-white rounded-lg overflow-hidden">
+                       <thead className="bg-gray-100">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Course</th>
+                          <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Batch</th>
+                          <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Date</th>
+                          <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Time</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {mySchedules.map(schedule => (
+                           <tr key={schedule.id} className="hover:bg-gray-50">
+                             <td className="px-4 py-2">{schedule.courseName}</td>
+                             <td className="px-4 py-2">{schedule.batchName}</td>
+                             <td className="px-4 py-2">{new Date(schedule.date).toLocaleDateString()}</td>
+                             <td className="px-4 py-2">{schedule.time}</td>
+                           </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : <div className="text-gray-500 italic">No lectures assigned to you.</div>
+                })()}
+              </div>
+            ) : (
+              // Admin sees all instructors
+              <div className="space-y-6">
+                {instructors.map(instructor => {
+                  const instructorSchedules = getInstructorSchedules(instructor.id);
+                  return (
+                    <div key={instructor.id} className="border border-gray-200 rounded-lg p-4">
+                      <h3 className="font-bold text-lg text-gray-800 mb-4">{instructor.name}</h3>
+                      {instructorSchedules.length > 0 ? (
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Course</th>
+                                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Batch</th>
+                                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Date</th>
+                                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Time</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <div className="text-sm text-gray-500 italic">No lectures assigned</div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {instructorSchedules.sort((a, b) => new Date(a.date) - new Date(b.date)).map(schedule => (
+                                <tr key={schedule.id} className="hover:bg-gray-50">
+                                  <td className="px-4 py-2 text-sm text-gray-800">{schedule.courseName}</td>
+                                  <td className="px-4 py-2 text-sm text-gray-600">{schedule.batchName}</td>
+                                  <td className="px-4 py-2 text-sm text-gray-600">
+                                    {new Date(schedule.date).toLocaleDateString()}
+                                  </td>
+                                  <td className="px-4 py-2 text-sm text-gray-600">{schedule.time}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-500 italic">No lectures assigned</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
